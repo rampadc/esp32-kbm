@@ -7,5 +7,24 @@
   "[c]": {
     "editor.quickSuggestions": true
   },
-  "C_Cpp.intelliSenseEngineFallback": "Enabled"
+  "C_Cpp.intelliSenseEngineFallback": "Enabled",
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#738cd1",
+    "activityBar.activeBorder": "#efcfd8",
+    "activityBar.background": "#738cd1",
+    "activityBar.foreground": "#15202b",
+    "activityBar.inactiveForeground": "#15202b99",
+    "activityBarBadge.background": "#efcfd8",
+    "activityBarBadge.foreground": "#15202b",
+    "statusBar.background": "#4d6cc4",
+    "statusBar.border": "#4d6cc4",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#738cd1",
+    "titleBar.activeBackground": "#4d6cc4",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.border": "#4d6cc4",
+    "titleBar.inactiveBackground": "#4d6cc499",
+    "titleBar.inactiveForeground": "#e7e7e799"
+  },
+  "peacock.color": "#4d6cc4"
 }
