@@ -6,6 +6,10 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #include <stdio.h>
 #include "esp_spi_flash.h"
 #include "esp_err.h"
@@ -16,19 +20,55 @@
 #include "esp_hidd_prf_api.h"
 #include "esp_gap_ble_api.h"
 
-#include "freertos/task.h"
-#include "freertos/FreeRTOS.h"
+
 
 #define TAG "ESP32_KBM"
 
-static bool sec_conn = false;
+#define HIDD_DEVICE_NAME            "HID"
+static uint8_t hidd_service_uuid128[] = {
+    /* LSB <--------------------------------------------------------------------------------> MSB */
+    //first uuid, 16bit, [12],[13] is the value
+    0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x12, 0x18, 0x00, 0x00,
+};
 
-/* kbm_task() has instructions to what to do when a secure connection is established */
-void kbm_task(void *pvParameters);
+static bool sec_conn = false;
+static uint16_t hid_conn_id = 0;
+
+
+/* hid_task() has instructions to what to do when a secure connection is established */
+void hid_task(void *pvParameters);
 /* hidd_event_callback() handles ble events */
 static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param);
 /* gap_event_handler() handles GAP events */
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
+
+static esp_ble_adv_params_t hidd_adv_params = {
+    .adv_int_min        = 0x20,
+    .adv_int_max        = 0x30,
+    .adv_type           = ADV_TYPE_IND,
+    .own_addr_type      = BLE_ADDR_TYPE_PUBLIC,
+    //.peer_addr            =
+    //.peer_addr_type       =
+    .channel_map        = ADV_CHNL_ALL,
+    .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
+};
+
+static esp_ble_adv_data_t hidd_adv_data = {
+    .set_scan_rsp = false,
+    .include_name = true,
+    .include_txpower = true,
+    .min_interval = 0x0006, //slave connection min interval, Time = min_interval * 1.25 msec
+    .max_interval = 0x0010, //slave connection max interval, Time = max_interval * 1.25 msec
+    .appearance = 0x03c0,       //HID Generic,
+    .manufacturer_len = 0,
+    .p_manufacturer_data =  NULL,
+    .service_data_len = 0,
+    .p_service_data = NULL,
+    .service_uuid_len = sizeof(hidd_service_uuid128),
+    .p_service_uuid = hidd_service_uuid128,
+    .flag = 0x6,
+};
+
 
 void app_main(void)
 {
@@ -72,11 +112,13 @@ void app_main(void)
     if((ret = esp_hidd_profile_init()) != ESP_OK) {
         ESP_LOGE(TAG, "%s init bluedroid failed\n", __func__);
     }
-
+    
+    ESP_LOGI(TAG, "Registering callbacks...");
     ///register the callback function to the gap module
     esp_ble_gap_register_callback(gap_event_handler);
     esp_hidd_register_callbacks(hidd_event_callback);
 
+    ESP_LOGI(TAG, "Setting security config...");
     /* set the security iocap & auth_req & key size & init key response key parameters to the stack*/
     esp_ble_auth_req_t auth_req = ESP_LE_AUTH_REQ_SC_MITM_BOND;     //bonding with peer device after authentication
     esp_ble_io_cap_t iocap = ESP_IO_CAP_IN;           //set the IO capability to No output No input
@@ -93,10 +135,10 @@ void app_main(void)
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &init_key, sizeof(uint8_t));
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
 
-    xTaskCreate(&kbm_task, "hid_task", 2048, NULL, 5, NULL);
+    xTaskCreate(&hid_task, "hid_task", 2048, NULL, 5, NULL);
 }
 
-void kbm_task(void *pvParameters) {
+void hid_task(void *pvParameters) {
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     while(1) {
         vTaskDelay(2000 / portTICK_PERIOD_MS);
@@ -106,10 +148,63 @@ void kbm_task(void *pvParameters) {
     }
 }
 
-static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param) {
-
+static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param)
+{
+    switch(event) {
+        case ESP_HIDD_EVENT_REG_FINISH: {
+            if (param->init_finish.state == ESP_HIDD_INIT_OK) {
+                //esp_bd_addr_t rand_addr = {0x04,0x11,0x11,0x11,0x11,0x05};
+                esp_ble_gap_set_device_name(HIDD_DEVICE_NAME);
+                esp_ble_gap_config_adv_data(&hidd_adv_data);
+                
+            }
+            break;
+        }
+        case ESP_BAT_EVENT_REG: {
+            break;
+        }
+        case ESP_HIDD_EVENT_DEINIT_FINISH:
+	     break;
+		case ESP_HIDD_EVENT_BLE_CONNECT: {
+            ESP_LOGI(TAG, "ESP_HIDD_EVENT_BLE_CONNECT");
+            hid_conn_id = param->connect.conn_id;
+            break;
+        }
+        case ESP_HIDD_EVENT_BLE_DISCONNECT: {
+            sec_conn = false;
+            ESP_LOGI(TAG, "ESP_HIDD_EVENT_BLE_DISCONNECT");
+            esp_ble_gap_start_advertising(&hidd_adv_params);
+            break;
+        }
+        case ESP_HIDD_EVENT_BLE_VENDOR_REPORT_WRITE_EVT: {
+            ESP_LOGI(TAG, "%s, ESP_HIDD_EVENT_BLE_VENDOR_REPORT_WRITE_EVT", __func__);
+            ESP_LOG_BUFFER_HEX(TAG, param->vendor_write.data, param->vendor_write.length);
+        }    
+        default:
+            break;
+    }
+    return;
 }
 
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
-    
+    switch (event) {
+    case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
+        ESP_LOGI(TAG, "Started advertising...");
+        esp_ble_gap_start_advertising(&hidd_adv_params);
+        break;
+    case ESP_GAP_BLE_SEC_REQ_EVT:
+        for(int i = 0; i < ESP_BD_ADDR_LEN; i++) {
+            ESP_LOGI(TAG, "%x:", param->ble_security.ble_req.bd_addr[i]);
+        }
+        esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, true);
+        break;
+    case ESP_GAP_BLE_PASSKEY_REQ_EVT:
+        ESP_LOGI(TAG, "Master requesting security key...");
+        esp_ble_passkey_reply(param->ble_security.ble_req.bd_addr, true, 000000);
+        break;
+    case ESP_GAP_BLE_AUTH_CMPL_EVT:
+        sec_conn = true;
+
+        break;
+    }
 }

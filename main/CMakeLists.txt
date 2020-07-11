@@ -6,4 +6,4 @@ idf_component_register(
     INCLUDE_DIRS "."
 )
 
-target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-unused-const-variable)
+target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-unused-const-variable -Wno-error=switch)
