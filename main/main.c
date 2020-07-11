@@ -16,7 +16,19 @@
 #include "esp_hidd_prf_api.h"
 #include "esp_gap_ble_api.h"
 
+#include "freertos/task.h"
+#include "freertos/FreeRTOS.h"
+
 #define TAG "ESP32_KBM"
+
+static bool sec_conn = false;
+
+/* kbm_task() has instructions to what to do when a secure connection is established */
+void kbm_task(void *pvParameters);
+/* hidd_event_callback() handles ble events */
+static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param);
+/* gap_event_handler() handles GAP events */
+static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
 
 void app_main(void)
 {
@@ -61,6 +73,10 @@ void app_main(void)
         ESP_LOGE(TAG, "%s init bluedroid failed\n", __func__);
     }
 
+    ///register the callback function to the gap module
+    esp_ble_gap_register_callback(gap_event_handler);
+    esp_hidd_register_callbacks(hidd_event_callback);
+
     /* set the security iocap & auth_req & key size & init key response key parameters to the stack*/
     esp_ble_auth_req_t auth_req = ESP_LE_AUTH_REQ_SC_MITM_BOND;     //bonding with peer device after authentication
     esp_ble_io_cap_t iocap = ESP_IO_CAP_IN;           //set the IO capability to No output No input
@@ -76,4 +92,24 @@ void app_main(void)
     and the init key means which key you can distribute to the slave. */
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &init_key, sizeof(uint8_t));
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
+
+    xTaskCreate(&kbm_task, "hid_task", 2048, NULL, 5, NULL);
+}
+
+void kbm_task(void *pvParameters) {
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    while(1) {
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        if (sec_conn) {
+        
+        }
+    }
+}
+
+static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param) {
+
+}
+
+static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
+    
 }
