@@ -144,7 +144,7 @@ void watch_prompts()
         char *line = linenoise(prompt);
         if (line == NULL)
         { /* Got EOF or error */
-            ESP_LOGE(TAG, "Got EOF or error");
+            // ESP_LOGE(TAG, "Got EOF or error");
             continue;
         }
         /* Add the command to the history if not empty*/
