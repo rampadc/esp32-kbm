@@ -16,6 +16,8 @@
 #include "esp_err.h"
 #include "esp_console.h"
 
+#include "ble_kbm_types.h"
+
 #define TAG "ESP32_KBM"
 
 extern void initialise_nvs();
@@ -34,20 +36,7 @@ extern void handle_bluetooth_task();
 void hid_task(void *pvParameters);
 void console_task(void *pvParameters);
 
-typedef struct
-{
-    uint8_t modifier;
-    uint8_t keycode;
-} keyboard_t;
-
-typedef struct
-{
-    uint8_t mouse_button;
-    int8_t movement_x;
-    int8_t moevement_y;
-} mouse_t;
-
-QueueHandle_t passkey_queue, keycodes_queue, mouse_queue;
+QueueHandle_t passkey_queue, keyboard_queue, mouse_queue;
 
 void app_main(void)
 {
@@ -55,7 +44,7 @@ void app_main(void)
 
     /* Initialise queues */
     passkey_queue = xQueueCreate(1, sizeof(uint32_t));
-    keycodes_queue = xQueueCreate(8, sizeof(keyboard_t));
+    keyboard_queue = xQueueCreate(8, sizeof(keyboard_t));
     mouse_queue = xQueueCreate(8, sizeof(mouse_t));
 
     initialise_bluetooth();

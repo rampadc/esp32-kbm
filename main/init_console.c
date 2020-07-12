@@ -14,6 +14,7 @@
 #include "argtable3/argtable3.h"
 
 #include "hid_dev.h"
+#include "ble_kbm_types.h"
 
 /******************************************************************************
  * File variables
@@ -29,18 +30,19 @@ static struct
     struct arg_end *end;
 } passkey_args;
 
-/** Arguments used by 't <translate>' function */
+/** Arguments used by 'r <raw>' function */
 static struct
 {
-    struct arg_str *character;
+    struct arg_int *modifier;
+    struct arg_int *keycode;
     struct arg_end *end;
-} translate_args;
+} raw_keycode_args;
 
 /******************************************************************************
  * External variables
  *****************************************************************************/
 extern QueueHandle_t passkey_queue;
-extern QueueHandle_t keycodes_queue;
+extern QueueHandle_t keyboard_queue;
 extern QueueHandle_t mouse_queue;
 
 /******************************************************************************
@@ -53,9 +55,11 @@ extern void bluetooth_send_character(char);
  * Function declarations
  *****************************************************************************/
 int reply_with_passkey(int argc, char **argv);
+int send_modifier_keycode(int argc, char **argv);
 void config_prompts();
 void watch_prompts();
 void console_register_bluetooth_commands();
+
 
 /******************************************************************************
  * Function implementation
@@ -202,6 +206,39 @@ int reply_with_passkey(int argc, char **argv)
     return 0;
 }
 
+int send_modifier_keycode(int argc, char **argv)
+{
+    int nerrors = arg_parse(argc, argv, (void **)&raw_keycode_args);
+    if (nerrors != 0)
+    {
+        arg_print_errors(stderr, raw_keycode_args.end, argv[0]);
+        return 1;
+    }
+
+    uint8_t modifier = raw_keycode_args.modifier->ival[0];
+    uint8_t keycode = raw_keycode_args.keycode->ival[0];
+
+    ESP_LOGD(TAG, "modifier: %d", modifier);
+    ESP_LOGD(TAG, "keycode: %d", keycode);
+
+    keyboard_t keyboard_value = {
+        .modifier = modifier,
+        .keycode = keycode
+    };
+
+    if (keyboard_queue != 0)
+    {
+        if (xQueueSend(keyboard_queue, (void *)&keyboard_value, (TickType_t)10) != pdPASS)
+        {
+            ESP_LOGE(TAG, "Failed to send keyboard value to queue");
+            return 1;
+        }
+
+        ESP_LOGI(TAG, "Keyboard value sent to queue");
+    }
+    return 0;
+}
+
 /******************************************************************************
  * Register console commands
  *****************************************************************************/
@@ -221,4 +258,22 @@ void console_register_bluetooth_commands()
         .argtable = &passkey_args};
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&passkey_cmd));
+
+    /**
+     * Send raw keycode value
+     */
+    raw_keycode_args.modifier = arg_int0(NULL, NULL, "<modifier>", "modifier");
+    raw_keycode_args.keycode = arg_int1(NULL, NULL, "<keycode>", "keycode");
+    raw_keycode_args.end = arg_end(1);
+
+    const esp_console_cmd_t raw_keycode_cmd = {
+        .command = "r",
+        .help = "Send raw keycode with modifier and keycode",
+        .hint = "r modifier keycode",
+        .func = &send_modifier_keycode,
+        .argtable = &raw_keycode_args
+    };
+
+    ESP_ERROR_CHECK(esp_console_cmd_register(&raw_keycode_cmd));
+
 }

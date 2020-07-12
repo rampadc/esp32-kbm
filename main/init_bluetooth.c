@@ -12,6 +12,8 @@
 #include "esp_gap_ble_api.h"
 #include <string.h>
 
+#include "ble_kbm_types.h"
+
 /******************************************************************************
  * File variables
  *****************************************************************************/
@@ -74,7 +76,7 @@ static esp_ble_adv_data_t hidd_adv_data = {
  * External variables
  *****************************************************************************/
 extern QueueHandle_t passkey_queue;
-extern QueueHandle_t keycodes_queue;
+extern QueueHandle_t keyboard_queue;
 extern QueueHandle_t mouse_queue;
 
 /******************************************************************************
@@ -335,6 +337,27 @@ void handle_bluetooth_task()
                 ESP_LOGI(TAG, "Received value %06d", passkey_value);
 
                 bluetooth_send_passkey(passkey_value);
+            }
+        }
+
+        if (keyboard_queue != 0)
+        {
+            keyboard_t key_value;
+            if (xQueueReceive(keyboard_queue, &key_value, (TickType_t)10))
+            {
+                ESP_LOGI(TAG, "Received keyboard value");
+
+                ESP_LOGD(TAG, "modifier: %d", key_value.modifier);
+                ESP_LOGD(TAG, "keycode: %d", key_value.keycode);
+
+                uint8_t modifier = key_value.modifier;
+                uint8_t keycode = key_value.keycode;
+
+                uint8_t kbdcmd[] = {keycode};
+                esp_hidd_send_keyboard_value(hid_conn_id, 0, kbdcmd, 1);
+                kbdcmd[0] = 0;
+                esp_hidd_send_keyboard_value(hid_conn_id, 0, kbdcmd, 1);
+                ESP_LOGI(TAG, "Sent keycode to client");
             }
         }
     }
