@@ -62,7 +62,6 @@ void config_prompts();
 void watch_prompts();
 void console_register_bluetooth_commands();
 
-
 /******************************************************************************
  * Function implementation
  *****************************************************************************/
@@ -257,6 +256,22 @@ int delete_bondings(int argc, char **argv)
     return 0;
 }
 
+int list_bondings(int argc, char **argv)
+{
+    uint8_t command = LIST_BONDINGS;
+    if (commands_queue != 0)
+    {
+        if (xQueueSend(commands_queue, (void *)&command, (TickType_t)10) != pdPASS)
+        {
+            ESP_LOGE(TAG, "Failed to send LIST_BONDINGS command to queue");
+            return 1;
+        }
+
+        ESP_LOGI(TAG, "LIST_BONDINGS command sent to queue");
+    }
+    return 0;
+}
+
 /******************************************************************************
  * Register console commands
  *****************************************************************************/
@@ -305,5 +320,17 @@ void console_register_bluetooth_commands()
     };
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&delete_bondings_cmd));
+
+    /**
+     * List bondings
+     */
+    const esp_console_cmd_t list_bondings_cmd = {
+        .command = "lb",
+        .help = "List bondings",
+        .hint = "lb",
+        .func = &list_bondings,
+    };
+
+    ESP_ERROR_CHECK(esp_console_cmd_register(&list_bondings_cmd));
 
 }

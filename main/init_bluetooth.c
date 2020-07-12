@@ -259,6 +259,7 @@ void bluetooth_delete_all_bondings(void)
     }
 
     free(dev_list);
+    ESP_LOGI(TAG, "All bondings deleted");
 }
 
 void initialise_bluetooth()
@@ -391,7 +392,9 @@ void handle_bluetooth_task()
                 {
                 case DELETE_ALL_BONDINGS:
                     bluetooth_delete_all_bondings();
-                    ESP_LOGI(TAG, "All bondings deleted");
+                    break;
+                case LIST_BONDINGS:
+                    bluetooth_show_bonded_devices();
                     break;
                 }
             }
