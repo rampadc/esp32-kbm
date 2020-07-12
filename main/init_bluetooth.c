@@ -233,11 +233,13 @@ void bluetooth_show_bonded_devices(void)
     esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
     esp_ble_get_bond_device_list(&dev_num, dev_list);
     ESP_LOGI(TAG, "Bonded devices number : %d\n", dev_num);
-
     ESP_LOGI(TAG, "Bonded devices list : %d\n", dev_num);
+
     for (int i = 0; i < dev_num; i++)
     {
-        esp_log_buffer_hex(TAG, (void *)dev_list[i].bd_addr, sizeof(esp_bd_addr_t));
+        ESP_LOGI(TAG, "%d, remote BD_ADDR: %08x%04x", i,
+                 (dev_list[i].bd_addr[0] << 24) + (dev_list[i].bd_addr[1] << 16) + (dev_list[i].bd_addr[2] << 8) + dev_list[i].bd_addr[3],
+                 (dev_list[i].bd_addr[4] << 8) + dev_list[i].bd_addr[5]);
     }
 
     free(dev_list);
