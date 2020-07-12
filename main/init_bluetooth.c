@@ -321,8 +321,6 @@ void initialise_bluetooth()
     and the init key means which key you can distribute to the slave. */
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &init_key, sizeof(uint8_t));
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
-
-    bluetooth_delete_all_bondings();
 }
 
 bool has_ble_secure_connection()
