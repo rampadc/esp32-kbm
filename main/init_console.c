@@ -10,6 +10,8 @@
 #include "linenoise/linenoise.h"
 #include "argtable3/argtable3.h"
 
+#include "hid_dev.h"
+
 /******************************************************************************
  * File variables
  *****************************************************************************/
@@ -18,20 +20,30 @@
 const char *prompt = LOG_COLOR_I "> " LOG_RESET_COLOR;
 
 /** Arguments used by 'passkey' function */
-static struct {
+static struct
+{
     struct arg_int *passkey;
     struct arg_end *end;
 } passkey_args;
+
+/** Arguments used by 't <translate>' function */
+static struct
+{
+    struct arg_str *character;
+    struct arg_end *end;
+} translate_args;
 
 /******************************************************************************
  * External functions
  *****************************************************************************/
 extern void bluetooth_send_passkey(uint32_t passkey);
+extern void bluetooth_send_character(char);
 
 /******************************************************************************
  * Function declarations
  *****************************************************************************/
 int reply_with_passkey(int argc, char **argv);
+int translate_and_send(int argc, char **argv);
 void config_prompts();
 void watch_prompts();
 void console_register_bluetooth_commands();
@@ -99,9 +111,9 @@ void config_prompts()
     if (probe_status)
     { /* zero indicates success */
         ESP_LOGI(TAG, "\n"
-               "Your terminal application does not support escape sequences.\n"
-               "Line editing and history features are disabled.\n"
-               "On Windows, try using Putty instead.\n");
+                      "Your terminal application does not support escape sequences.\n"
+                      "Line editing and history features are disabled.\n"
+                      "On Windows, try using Putty instead.\n");
         linenoiseSetDumbMode(1);
 #if CONFIG_LOG_COLORS
         /* Since the terminal doesn't support escape sequences,
@@ -114,46 +126,47 @@ void config_prompts()
 
 void watch_prompts()
 {
-    while (1)
-    {
-        char *line = linenoise(prompt);
-        if (line == NULL)
-        { /* Got EOF or error */
-            continue;
-        }
-        /* Add the command to the history if not empty*/
-        if (strlen(line) > 0)
-        {
-            linenoiseHistoryAdd(line);
-        }
-        /* Try to run the command */
-        int ret;
-        esp_err_t err = esp_console_run(line, &ret);
-        if (err == ESP_ERR_NOT_FOUND)
-        {
-            ESP_LOGE(TAG, "Unrecognized command\n");
-        }
-        else if (err == ESP_ERR_INVALID_ARG)
-        {
-            // command was empty
-        }
-        else if (err == ESP_OK && ret != ESP_OK)
-        {
-            ESP_LOGE(TAG, "Command returned non-zero error code: 0x%x (%s)\n", ret, esp_err_to_name(ret));
-        }
-        else if (err != ESP_OK)
-        {
-            ESP_LOGE(TAG, "Internal error: %s\n", esp_err_to_name(err));
-        }
-        /* linenoise allocates line buffer on the heap, so need to free it */
-        linenoiseFree(line);
+    char *line = linenoise(prompt);
+    if (line == NULL)
+    { /* Got EOF or error */
+        continue;
     }
+    /* Add the command to the history if not empty*/
+    if (strlen(line) > 0)
+    {
+        linenoiseHistoryAdd(line);
+    }
+    /* Try to run the command */
+    int ret;
+    esp_err_t err = esp_console_run(line, &ret);
+    if (err == ESP_ERR_NOT_FOUND)
+    {
+        ESP_LOGE(TAG, "Unrecognized command\n");
+    }
+    else if (err == ESP_ERR_INVALID_ARG)
+    {
+        // command was empty
+    }
+    else if (err == ESP_OK && ret != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Command returned non-zero error code: 0x%x (%s)\n", ret, esp_err_to_name(ret));
+    }
+    else if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Internal error: %s\n", esp_err_to_name(err));
+    }
+    /* linenoise allocates line buffer on the heap, so need to free it */
+    linenoiseFree(line);
 }
 
+/******************************************************************************
+ * Console command handlers
+ *****************************************************************************/
 int reply_with_passkey(int argc, char **argv)
 {
-    int nerrors = arg_parse(argc, argv, (void **) &passkey_args);
-    if (nerrors != 0) {
+    int nerrors = arg_parse(argc, argv, (void **)&passkey_args);
+    if (nerrors != 0)
+    {
         arg_print_errors(stderr, passkey_args.end, argv[0]);
         return 1;
     }
@@ -164,6 +177,24 @@ int reply_with_passkey(int argc, char **argv)
     return 0;
 }
 
+int translate_and_send(int argc, char **argv)
+{
+    int nerrors = arg_parse(argc, argv, (void **)&translate_args);
+    if (nerrors != 0)
+    {
+        arg_print_errors(stderr, translate_args.end, argv[0]);
+        return 1;
+    }
+
+    char c = translate_args.character->sval[0][0];
+    bluetooth_send_character(c);
+
+    return 0;
+}
+
+/******************************************************************************
+ * Register console commands
+ *****************************************************************************/
 void console_register_bluetooth_commands()
 {
     /**
@@ -177,12 +208,22 @@ void console_register_bluetooth_commands()
         .help = "Reply to initiator with a 6-digit passkey",
         .hint = "passkey 999999",
         .func = &reply_with_passkey,
-        .argtable = &passkey_args
-    };
+        .argtable = &passkey_args};
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&passkey_cmd));
 
     /**
-     * Translate to HID values 
+     * Translate a key to keycode
      */
+    translate_args.character = arg_int0(NULL, NULL, "<char>", "character");
+    translate_args.end = arg_end(0);
+
+    const esp_console_cmd_t translate_cmd = {
+        .command = "t",
+        .help = "Translate character to keycode and send to host",
+        .hint = "t A",
+        .func = &translate_and_send,
+        .argtable = &translate_args};
+
+    ESP_ERROR_CHECK(esp_console_cmd_register(&translate_cmd));
 }

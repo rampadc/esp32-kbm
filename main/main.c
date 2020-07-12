@@ -26,6 +26,7 @@ extern void console_register_bluetooth_commands();
 
 extern void initialise_bluetooth();
 extern bool has_ble_secure_connection();
+extern void bluetooth_send_character(char);
 
 /* hid_task() has instructions to what to do when a secure connection is established */
 void hid_task(void *pvParameters);
@@ -59,11 +60,17 @@ void hid_task(void *pvParameters)
         vTaskDelay(2000 / portTICK_PERIOD_MS);
         if (has_ble_secure_connection())
         {
+            bluetooth_send_character('y');
         }
     }
+
+    vTaskDelete(NULL);
 }
 
 void console_task(void *pvParameters)
 {
-    watch_prompts();
+    while (1) {
+        watch_prompts();
+    }
+    vTaskDelete(NULL);
 }

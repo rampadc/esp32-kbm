@@ -28,6 +28,7 @@
   },
   "peacock.color": "#4d6cc4",
   "files.associations": {
-    "*.inc": "c"
+    "*.inc": "c",
+    "esp_console.h": "c"
   }
 }
