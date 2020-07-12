@@ -39,6 +39,14 @@ static struct
     struct arg_end *end;
 } raw_keycode_args;
 
+static struct 
+{
+    struct arg_int *mouse_buttons;
+    struct arg_int *movement_x;
+    struct arg_int *movement_y;
+    struct arg_end *end;
+} mouse_args;
+
 /******************************************************************************
  * External variables
  *****************************************************************************/
@@ -240,6 +248,38 @@ int send_modifier_keycode(int argc, char **argv)
     return 0;
 }
 
+int send_mouse(int argc, char **argv)
+{
+    int nerrors = arg_parse(argc, argv, (void **)&mouse_args);
+    if (nerrors != 0)
+    {
+        arg_print_errors(stderr, mouse_args.end, argv[0]);
+        return 1;
+    }
+
+    uint8_t buttons = mouse_args.mouse_buttons->ival[0];
+    int8_t x = mouse_args.movement_x->ival[0];
+    int8_t y = mouse_args.movement_y->ival[0];
+
+    mouse_t mouse_data = {
+        .mouse_buttons = buttons,
+        .movement_x = x,
+        .movement_y = y
+    };
+
+    if (mouse_queue != 0)
+    {
+        if (xQueueSend(mouse_queue, (void *)&mouse_data, (TickType_t)10) != pdPASS)
+        {
+            ESP_LOGE(TAG, "Failed to send mouse data to queue");
+            return 1;
+        }
+
+        ESP_LOGI(TAG, "Mouse data sent to queue");
+    }
+    return 0;
+}
+
 int delete_bondings(int argc, char **argv)
 {
     uint8_t command = DELETE_ALL_BONDINGS;
@@ -308,6 +348,24 @@ void console_register_bluetooth_commands()
     };
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&raw_keycode_cmd));
+
+    /**
+     * Send mouse values
+     */
+    mouse_args.mouse_buttons = arg_int0(NULL, NULL, "<btn>", "buttons");
+    mouse_args.movement_x = arg_int1(NULL, NULL, "<x>", "x");
+    mouse_args.movement_y = arg_int1(NULL, NULL, "<y>", "y");
+    mouse_args.end = arg_end(2);
+
+    const esp_console_cmd_t mouse_cmd = {
+        .command = "m",
+        .help = "Send mouse command",
+        .hint = "m buttons x y",
+        .func = &send_mouse,
+        .argtable = &mouse_args
+    };
+
+    ESP_ERROR_CHECK(esp_console_cmd_register(&mouse_cmd));
 
     /**
      * Delete all bondings

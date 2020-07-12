@@ -382,6 +382,20 @@ void handle_bluetooth_task()
             }
         }
 
+        if (mouse_queue != 0)
+        {
+            mouse_t mouse_data;
+            if (xQueueReceive(mouse_queue, &mouse_data, (TickType_t)10))
+            {
+                uint8_t buttons = mouse_data.mouse_buttons;
+                int8_t x = mouse_data.movement_x;
+                int8_t y = mouse_data.movement_y;
+
+                esp_hidd_send_mouse_value(hid_conn_id, buttons, x, y);
+                ESP_LOGI(TAG, "Sent mouse data to client");
+            }
+        }
+
         if (commands_queue != 0)
         {
             uint8_t command;
