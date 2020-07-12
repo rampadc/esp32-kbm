@@ -269,9 +269,9 @@ void console_register_bluetooth_commands()
     passkey_args.end = arg_end(0);
 
     const esp_console_cmd_t passkey_cmd = {
-        .command = "passkey",
-        .help = "Reply to initiator with a 6-digit passkey",
-        .hint = "passkey 999999",
+        .command = "p",
+        .help = "Send a 6-digit passkey",
+        .hint = "p 999999",
         .func = &reply_with_passkey,
         .argtable = &passkey_args};
 
