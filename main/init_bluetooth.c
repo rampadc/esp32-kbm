@@ -354,9 +354,9 @@ void handle_bluetooth_task()
                 uint8_t keycode = key_value.keycode;
 
                 uint8_t kbdcmd[] = {keycode};
-                esp_hidd_send_keyboard_value(hid_conn_id, 0, kbdcmd, 1);
+                esp_hidd_send_keyboard_value(hid_conn_id, modifier, kbdcmd, 1);
                 kbdcmd[0] = 0;
-                esp_hidd_send_keyboard_value(hid_conn_id, 0, kbdcmd, 1);
+                esp_hidd_send_keyboard_value(hid_conn_id, modifier, kbdcmd, 1);
                 ESP_LOGI(TAG, "Sent keycode to client");
             }
         }
