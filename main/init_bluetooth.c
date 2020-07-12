@@ -5,6 +5,8 @@
 #include "esp_hidd_prf_api.h"
 #include "esp_gap_ble_api.h"
 
+#include <string.h>
+
 #define TAG "ESP32_KBM_HID"
 
 
@@ -17,6 +19,8 @@ static uint8_t hidd_service_uuid128[] = {
 
 static bool sec_conn = false;
 static uint16_t hid_conn_id = 0;
+static char *esp_auth_req_to_str(esp_ble_auth_req_t auth_req);
+static void show_bonded_devices(void);
 
 static esp_bd_addr_t passkey_requester_addr;
 
@@ -93,18 +97,86 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
     case ESP_GAP_BLE_SEC_REQ_EVT:
         for(int i = 0; i < ESP_BD_ADDR_LEN; i++) {
             ESP_LOGI(TAG, "%x:", param->ble_security.ble_req.bd_addr[i]);
+            bta_gattc_co_cache_reset(bd_addr[i]);
         }
         esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, true);
         break;
     case ESP_GAP_BLE_PASSKEY_REQ_EVT:
         ESP_LOGI(TAG, "Master requesting security key...");
-        // passkey_requester_addr = param->ble_security.ble_req.bd_addr;
+        /* both are of type uint8_t, which fits into char * nicely */
+        strcpy((char *) passkey_requester_addr, (char *) param->ble_security.ble_req.bd_addr);
         break;
     case ESP_GAP_BLE_AUTH_CMPL_EVT:
+        ESP_LOGI(TAG, "Authentication completed\n");
         sec_conn = true;
 
+        esp_bd_addr_t bd_addr;
+        memcpy(bd_addr, param->ble_security.auth_cmpl.bd_addr, sizeof(esp_bd_addr_t));
+        ESP_LOGI(TAG, "remote BD_ADDR: %08x%04x",\
+                (bd_addr[0] << 24) + (bd_addr[1] << 16) + (bd_addr[2] << 8) + bd_addr[3],
+                (bd_addr[4] << 8) + bd_addr[5]);
+        ESP_LOGI(TAG, "address type = %d", param->ble_security.auth_cmpl.addr_type);
+        ESP_LOGI(TAG, "pair status = %s",param->ble_security.auth_cmpl.success ? "success" : "fail");
+        if(!param->ble_security.auth_cmpl.success) {
+            ESP_LOGE(TAG, "fail reason = 0x%x",param->ble_security.auth_cmpl.fail_reason);
+        } else {
+            ESP_LOGI(TAG, "auth mode = %s",esp_auth_req_to_str(param->ble_security.auth_cmpl.auth_mode));
+        }
+        show_bonded_devices();
         break;
     }
+}
+
+static char *esp_auth_req_to_str(esp_ble_auth_req_t auth_req)
+{
+   char *auth_str = NULL;
+   switch(auth_req) {
+    case ESP_LE_AUTH_NO_BOND:
+        auth_str = "ESP_LE_AUTH_NO_BOND";
+        break;
+    case ESP_LE_AUTH_BOND:
+        auth_str = "ESP_LE_AUTH_BOND";
+        break;
+    case ESP_LE_AUTH_REQ_MITM:
+        auth_str = "ESP_LE_AUTH_REQ_MITM";
+        break;
+    case ESP_LE_AUTH_REQ_BOND_MITM:
+        auth_str = "ESP_LE_AUTH_REQ_BOND_MITM";
+        break;
+    case ESP_LE_AUTH_REQ_SC_ONLY:
+        auth_str = "ESP_LE_AUTH_REQ_SC_ONLY";
+        break;
+    case ESP_LE_AUTH_REQ_SC_BOND:
+        auth_str = "ESP_LE_AUTH_REQ_SC_BOND";
+        break;
+    case ESP_LE_AUTH_REQ_SC_MITM:
+        auth_str = "ESP_LE_AUTH_REQ_SC_MITM";
+        break;
+    case ESP_LE_AUTH_REQ_SC_MITM_BOND:
+        auth_str = "ESP_LE_AUTH_REQ_SC_MITM_BOND";
+        break;
+    default:
+        auth_str = "INVALID BLE AUTH REQ";
+        break;
+   }
+
+   return auth_str;
+}
+
+static void show_bonded_devices(void)
+{
+    int dev_num = esp_ble_get_bond_device_num();
+
+    esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
+    esp_ble_get_bond_device_list(&dev_num, dev_list);
+    ESP_LOGI(TAG, "Bonded devices number : %d\n", dev_num);
+
+    ESP_LOGI(TAG, "Bonded devices list : %d\n", dev_num);
+    for (int i = 0; i < dev_num; i++) {
+        esp_log_buffer_hex(TAG, (void *)dev_list[i].bd_addr, sizeof(esp_bd_addr_t));
+    }
+
+    free(dev_list);
 }
 
 void initialise_bluetooth() {
@@ -170,5 +242,6 @@ bool has_ble_secure_connection() {
 }
 
 void bluetooth_send_passkey(uint32_t passkey) {
+    ESP_LOGI(TAG, "Replying with passkey: %06d", passkey);
     esp_ble_passkey_reply(passkey_requester_addr, true, passkey);
 }

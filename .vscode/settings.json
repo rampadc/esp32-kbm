@@ -26,5 +26,8 @@
     "titleBar.inactiveBackground": "#4d6cc499",
     "titleBar.inactiveForeground": "#e7e7e799"
   },
-  "peacock.color": "#4d6cc4"
+  "peacock.color": "#4d6cc4",
+  "files.associations": {
+    "*.inc": "c"
+  }
 }

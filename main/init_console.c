@@ -133,19 +133,23 @@ void watch_prompts()
 
 int reply_with_passkey(int argc, char **argv)
 {
-    ESP_LOGI(TAG, "Sending back passkey to initiator...");
     int nerrors = arg_parse(argc, argv, (void **) &passkey_args);
     if (nerrors != 0) {
         arg_print_errors(stderr, passkey_args.end, argv[0]);
         return 1;
     }
 
-    //bluetooth_send_passkey
+    ESP_LOGI(TAG, "Replying with passkey %zu", passkey_args.passkey->ival[0]);
+    bluetooth_send_passkey(passkey_args.passkey->ival[0]);
+
     return 0;
 }
 
 void console_register_bluetooth_commands()
 {
+    /**
+     * Reply to client with passkey
+     */
     passkey_args.passkey = arg_int0(NULL, NULL, "<pass>", "passkey");
     passkey_args.end = arg_end(0);
 
@@ -158,4 +162,8 @@ void console_register_bluetooth_commands()
     };
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&passkey_cmd));
+
+    /**
+     * Translate to HID values 
+     */
 }
