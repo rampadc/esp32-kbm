@@ -1,6 +1,9 @@
 /******************************************************************************
  * Dependencies
  *****************************************************************************/
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+
 #include <stdio.h>
 #include "esp_console.h"
 #include "esp_vfs_dev.h"
@@ -34,6 +37,13 @@ static struct
 } translate_args;
 
 /******************************************************************************
+ * External variables
+ *****************************************************************************/
+extern QueueHandle_t passkey_queue;
+extern QueueHandle_t keycodes_queue;
+extern QueueHandle_t mouse_queue;
+
+/******************************************************************************
  * External functions
  *****************************************************************************/
 extern void bluetooth_send_passkey(uint32_t passkey);
@@ -43,7 +53,6 @@ extern void bluetooth_send_character(char);
  * Function declarations
  *****************************************************************************/
 int reply_with_passkey(int argc, char **argv);
-int translate_and_send(int argc, char **argv);
 void config_prompts();
 void watch_prompts();
 void console_register_bluetooth_commands();
@@ -126,37 +135,41 @@ void config_prompts()
 
 void watch_prompts()
 {
-    char *line = linenoise(prompt);
-    if (line == NULL)
-    { /* Got EOF or error */
-        continue;
-    }
-    /* Add the command to the history if not empty*/
-    if (strlen(line) > 0)
+    while (1)
     {
-        linenoiseHistoryAdd(line);
+        char *line = linenoise(prompt);
+        if (line == NULL)
+        { /* Got EOF or error */
+            ESP_LOGE(TAG, "Got EOF or error");
+            continue;
+        }
+        /* Add the command to the history if not empty*/
+        if (strlen(line) > 0)
+        {
+            linenoiseHistoryAdd(line);
+        }
+        /* Try to run the command */
+        int ret;
+        esp_err_t err = esp_console_run(line, &ret);
+        if (err == ESP_ERR_NOT_FOUND)
+        {
+            ESP_LOGE(TAG, "Unrecognized command\n");
+        }
+        else if (err == ESP_ERR_INVALID_ARG)
+        {
+            // command was empty
+        }
+        else if (err == ESP_OK && ret != ESP_OK)
+        {
+            ESP_LOGE(TAG, "Command returned non-zero error code: 0x%x (%s)\n", ret, esp_err_to_name(ret));
+        }
+        else if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "Internal error: %s\n", esp_err_to_name(err));
+        }
+        /* linenoise allocates line buffer on the heap, so need to free it */
+        linenoiseFree(line);
     }
-    /* Try to run the command */
-    int ret;
-    esp_err_t err = esp_console_run(line, &ret);
-    if (err == ESP_ERR_NOT_FOUND)
-    {
-        ESP_LOGE(TAG, "Unrecognized command\n");
-    }
-    else if (err == ESP_ERR_INVALID_ARG)
-    {
-        // command was empty
-    }
-    else if (err == ESP_OK && ret != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Command returned non-zero error code: 0x%x (%s)\n", ret, esp_err_to_name(ret));
-    }
-    else if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Internal error: %s\n", esp_err_to_name(err));
-    }
-    /* linenoise allocates line buffer on the heap, so need to free it */
-    linenoiseFree(line);
 }
 
 /******************************************************************************
@@ -172,23 +185,20 @@ int reply_with_passkey(int argc, char **argv)
     }
 
     ESP_LOGI(TAG, "Replying with passkey %zu", passkey_args.passkey->ival[0]);
-    bluetooth_send_passkey(passkey_args.passkey->ival[0]);
 
-    return 0;
-}
+    /* send passkey to bluetooth task */
+    uint32_t value = passkey_args.passkey->ival[0];
 
-int translate_and_send(int argc, char **argv)
-{
-    int nerrors = arg_parse(argc, argv, (void **)&translate_args);
-    if (nerrors != 0)
+    if (passkey_queue != 0)
     {
-        arg_print_errors(stderr, translate_args.end, argv[0]);
-        return 1;
+        if (xQueueSend(passkey_queue, (void *)&value, (TickType_t)10) != pdPASS)
+        {
+            ESP_LOGE(TAG, "Failed to send passkey to queue");
+            return 1;
+        }
+
+        ESP_LOGI(TAG, "Passkey sent to queue");
     }
-
-    char c = translate_args.character->sval[0][0];
-    bluetooth_send_character(c);
-
     return 0;
 }
 
@@ -211,19 +221,4 @@ void console_register_bluetooth_commands()
         .argtable = &passkey_args};
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&passkey_cmd));
-
-    /**
-     * Translate a key to keycode
-     */
-    translate_args.character = arg_int0(NULL, NULL, "<char>", "character");
-    translate_args.end = arg_end(0);
-
-    const esp_console_cmd_t translate_cmd = {
-        .command = "t",
-        .help = "Translate character to keycode and send to host",
-        .hint = "t A",
-        .func = &translate_and_send,
-        .argtable = &translate_args};
-
-    ESP_ERROR_CHECK(esp_console_cmd_register(&translate_cmd));
 }

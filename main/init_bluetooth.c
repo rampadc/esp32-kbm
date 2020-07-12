@@ -1,6 +1,9 @@
 /******************************************************************************
  * Dependencies
  *****************************************************************************/
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+
 #include "esp_err.h"
 #include "esp_bt.h"
 #include "esp_log.h"
@@ -66,6 +69,13 @@ static esp_ble_adv_data_t hidd_adv_data = {
     .p_service_uuid = hidd_service_uuid128,
     .flag = 0x6,
 };
+
+/******************************************************************************
+ * External variables
+ *****************************************************************************/
+extern QueueHandle_t passkey_queue;
+extern QueueHandle_t keycodes_queue;
+extern QueueHandle_t mouse_queue;
 
 /******************************************************************************
  * External functions
@@ -310,4 +320,22 @@ void bluetooth_send_character(char c)
     esp_hidd_send_keyboard_value(hid_conn_id, 0, kbdcmd, 1);
     kbdcmd[0] = 0;
     esp_hidd_send_keyboard_value(hid_conn_id, 0, kbdcmd, 1);
+}
+
+void handle_bluetooth_task()
+{
+    while (1)
+    {
+        if (passkey_queue != 0)
+        {
+            uint32_t passkey_value;
+
+            if (xQueueReceive(passkey_queue, &passkey_value, (TickType_t)10))
+            {
+                ESP_LOGI(TAG, "Received value %06d", passkey_value);
+
+                bluetooth_send_passkey(passkey_value);
+            }
+        }
+    }
 }
