@@ -13,23 +13,36 @@
 #include <stdio.h>
 #include "esp_spi_flash.h"
 #include "esp_err.h"
+#include "esp_console.h"
 
 #define TAG "ESP32_KBM"
 
-/* hid_task() has instructions to what to do when a secure connection is established */
-void hid_task(void *pvParameters);
+extern void initialise_nvs();
+
+extern void initialise_console();
+extern void config_prompts();
+extern void watch_prompts();
 
 extern void initialise_bluetooth();
 extern bool has_ble_secure_connection();
 
-extern void initialise_nvs();
+/* hid_task() has instructions to what to do when a secure connection is established */
+void hid_task(void *pvParameters);
+void console_task(void *pvParameters);
 
 void app_main(void)
 {
     initialise_nvs();
+
+    initialise_console();
+    config_prompts();
+    /* Register console commands */
+    esp_console_register_help_command();
+
     initialise_bluetooth();
 
-    xTaskCreate(&hid_task, "hid_task", 2048, NULL, 5, NULL);
+    // xTaskCreate(&hid_task, "hid_task", 2048, NULL, 5, NULL);
+    xTaskCreate(&console_task, "console_task", 2048, NULL, 5, NULL);
 }
 
 void hid_task(void *pvParameters) {
@@ -40,4 +53,8 @@ void hid_task(void *pvParameters) {
         
         }
     }
+}
+
+void console_task(void *pvParameters) {
+    watch_prompts();
 }
