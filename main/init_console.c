@@ -7,10 +7,18 @@
 #include "linenoise/linenoise.h"
 #include "argtable3/argtable3.h"
 
-#define PROMPT_STR CONFIG_IDF_TARGET
 #define TAG "ESP32_KBM_CONSOLE"
 
-const char *prompt = LOG_COLOR_I PROMPT_STR "> " LOG_RESET_COLOR;
+const char *prompt = LOG_COLOR_I "> " LOG_RESET_COLOR;
+
+/** Arguments used by 'passkey' function */
+static struct {
+    struct arg_int *passkey;
+    struct arg_end *end;
+} passkey_args;
+
+extern void bluetooth_send_passkey(uint32_t passkey);
+int reply_with_passkey(int argc, char **argv);
 
 void initialise_console()
 {
@@ -71,7 +79,7 @@ void config_prompts()
     int probe_status = linenoiseProbe();
     if (probe_status)
     { /* zero indicates success */
-        printf("\n"
+        ESP_LOGI(TAG, "\n"
                "Your terminal application does not support escape sequences.\n"
                "Line editing and history features are disabled.\n"
                "On Windows, try using Putty instead.\n");
@@ -80,7 +88,7 @@ void config_prompts()
         /* Since the terminal doesn't support escape sequences,
          * don't use color codes in the prompt.
          */
-        prompt = PROMPT_STR "> ";
+        prompt = "> ";
 #endif //CONFIG_LOG_COLORS
     }
 }
@@ -91,8 +99,8 @@ void watch_prompts()
     {
         char *line = linenoise(prompt);
         if (line == NULL)
-        { /* Break on EOF or error */
-            ESP_LOGE(TAG, "Encountered EOF/error");
+        { /* Got EOF or error */
+            continue;
         }
         /* Add the command to the history if not empty*/
         if (strlen(line) > 0)
@@ -121,4 +129,33 @@ void watch_prompts()
         /* linenoise allocates line buffer on the heap, so need to free it */
         linenoiseFree(line);
     }
+}
+
+int reply_with_passkey(int argc, char **argv)
+{
+    ESP_LOGI(TAG, "Sending back passkey to initiator...");
+    int nerrors = arg_parse(argc, argv, (void **) &passkey_args);
+    if (nerrors != 0) {
+        arg_print_errors(stderr, passkey_args.end, argv[0]);
+        return 1;
+    }
+
+    //bluetooth_send_passkey
+    return 0;
+}
+
+void console_register_bluetooth_commands()
+{
+    passkey_args.passkey = arg_int0(NULL, NULL, "<pass>", "passkey");
+    passkey_args.end = arg_end(0);
+
+    const esp_console_cmd_t passkey_cmd = {
+        .command = "passkey",
+        .help = "Reply to initiator with a 6-digit passkey",
+        .hint = "passkey 999999",
+        .func = &reply_with_passkey,
+        .argtable = &passkey_args
+    };
+
+    ESP_ERROR_CHECK(esp_console_cmd_register(&passkey_cmd));
 }

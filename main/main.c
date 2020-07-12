@@ -22,6 +22,7 @@ extern void initialise_nvs();
 extern void initialise_console();
 extern void config_prompts();
 extern void watch_prompts();
+extern void console_register_bluetooth_commands();
 
 extern void initialise_bluetooth();
 extern bool has_ble_secure_connection();
@@ -34,15 +35,20 @@ void app_main(void)
 {
     initialise_nvs();
 
+    initialise_bluetooth();
+
     initialise_console();
     config_prompts();
     /* Register console commands */
     esp_console_register_help_command();
+    console_register_bluetooth_commands();
 
-    initialise_bluetooth();
-
-    // xTaskCreate(&hid_task, "hid_task", 2048, NULL, 5, NULL);
-    xTaskCreate(&console_task, "console_task", 2048, NULL, 5, NULL);
+    /* 
+        Low priority numbers denote low priority tasks. The idle task has priority zero (tskIDLE_PRIORITY). 
+        https://www.freertos.org/RTOS-task-priority.html
+    */
+    xTaskCreate(&hid_task, "hid_task", 2048, NULL, 5, NULL);
+    xTaskCreate(&console_task, "console_task", 2048, NULL, 4, NULL);
 }
 
 void hid_task(void *pvParameters)

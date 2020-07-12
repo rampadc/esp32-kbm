@@ -18,6 +18,8 @@ static uint8_t hidd_service_uuid128[] = {
 static bool sec_conn = false;
 static uint16_t hid_conn_id = 0;
 
+static esp_bd_addr_t passkey_requester_addr;
+
 static esp_ble_adv_params_t hidd_adv_params = {
     .adv_int_min        = 0x20,
     .adv_int_max        = 0x30,
@@ -96,7 +98,7 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
         break;
     case ESP_GAP_BLE_PASSKEY_REQ_EVT:
         ESP_LOGI(TAG, "Master requesting security key...");
-        esp_ble_passkey_reply(param->ble_security.ble_req.bd_addr, true, 000000);
+        // passkey_requester_addr = param->ble_security.ble_req.bd_addr;
         break;
     case ESP_GAP_BLE_AUTH_CMPL_EVT:
         sec_conn = true;
@@ -165,4 +167,8 @@ void initialise_bluetooth() {
 
 bool has_ble_secure_connection() {
     return sec_conn;
+}
+
+void bluetooth_send_passkey(uint32_t passkey) {
+    esp_ble_passkey_reply(passkey_requester_addr, true, passkey);
 }
