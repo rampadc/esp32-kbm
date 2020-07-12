@@ -1,15 +1,18 @@
+/******************************************************************************
+ * Dependencies
+ *****************************************************************************/
 #include "esp_err.h"
 #include "esp_bt.h"
 #include "esp_log.h"
 #include "esp_bt_main.h"
 #include "esp_hidd_prf_api.h"
 #include "esp_gap_ble_api.h"
-
 #include <string.h>
 
+/******************************************************************************
+ * File variables
+ *****************************************************************************/
 #define TAG "ESP32_KBM_HID"
-
-
 #define HIDD_DEVICE_NAME            "HID"
 static uint8_t hidd_service_uuid128[] = {
     /* LSB <--------------------------------------------------------------------------------> MSB */
@@ -51,6 +54,25 @@ static esp_ble_adv_data_t hidd_adv_data = {
     .flag = 0x6,
 };
 
+/******************************************************************************
+ * External functions
+ *****************************************************************************/
+
+/******************************************************************************
+ * Function declarations
+ *****************************************************************************/
+static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param);
+static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
+static char *esp_auth_req_to_str(esp_ble_auth_req_t auth_req);
+static void show_bonded_devices(void);
+
+void initialise_bluetooth();
+bool has_ble_secure_connection();
+void bluetooth_send_passkey(uint32_t passkey);
+
+/******************************************************************************
+ * Function implementation
+ *****************************************************************************/
 static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param)
 {
     switch(event) {

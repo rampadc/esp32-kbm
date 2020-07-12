@@ -1,3 +1,6 @@
+/******************************************************************************
+ * Dependencies
+ *****************************************************************************/
 #include <stdio.h>
 #include "esp_console.h"
 #include "esp_vfs_dev.h"
@@ -7,6 +10,9 @@
 #include "linenoise/linenoise.h"
 #include "argtable3/argtable3.h"
 
+/******************************************************************************
+ * File variables
+ *****************************************************************************/
 #define TAG "ESP32_KBM_CONSOLE"
 
 const char *prompt = LOG_COLOR_I "> " LOG_RESET_COLOR;
@@ -17,9 +23,22 @@ static struct {
     struct arg_end *end;
 } passkey_args;
 
+/******************************************************************************
+ * External functions
+ *****************************************************************************/
 extern void bluetooth_send_passkey(uint32_t passkey);
-int reply_with_passkey(int argc, char **argv);
 
+/******************************************************************************
+ * Function declarations
+ *****************************************************************************/
+int reply_with_passkey(int argc, char **argv);
+void config_prompts();
+void watch_prompts();
+void console_register_bluetooth_commands();
+
+/******************************************************************************
+ * Function implementation
+ *****************************************************************************/
 void initialise_console()
 {
     /* Drain stdout before reconfiguring it */
