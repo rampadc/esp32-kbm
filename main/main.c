@@ -45,16 +45,19 @@ void app_main(void)
     xTaskCreate(&console_task, "console_task", 2048, NULL, 5, NULL);
 }
 
-void hid_task(void *pvParameters) {
+void hid_task(void *pvParameters)
+{
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    while(1) {
+    while (1)
+    {
         vTaskDelay(2000 / portTICK_PERIOD_MS);
-        if (has_ble_secure_connection()) {
-        
+        if (has_ble_secure_connection())
+        {
         }
     }
 }
 
-void console_task(void *pvParameters) {
+void console_task(void *pvParameters)
+{
     watch_prompts();
 }
