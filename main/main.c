@@ -17,6 +17,7 @@
 #include "esp_console.h"
 
 #include "ble_kbm_types.h"
+#include "commands.h"
 
 #define TAG "ESP32_KBM"
 
@@ -36,7 +37,7 @@ extern void handle_bluetooth_task();
 void hid_task(void *pvParameters);
 void console_task(void *pvParameters);
 
-QueueHandle_t passkey_queue, keyboard_queue, mouse_queue;
+QueueHandle_t passkey_queue, keyboard_queue, mouse_queue, commands_queue;
 
 void app_main(void)
 {
@@ -46,20 +47,23 @@ void app_main(void)
     passkey_queue = xQueueCreate(1, sizeof(uint32_t));
     keyboard_queue = xQueueCreate(8, sizeof(keyboard_t));
     mouse_queue = xQueueCreate(8, sizeof(mouse_t));
+    commands_queue = xQueueCreate(1, sizeof(uint8_t));
 
     initialise_bluetooth();
+    
     initialise_console();
     config_prompts();
     /* Register console commands */
     esp_console_register_help_command();
     console_register_bluetooth_commands();
 
+
     /* 
         Low priority numbers denote low priority tasks. The idle task has priority zero (tskIDLE_PRIORITY). 
         https://www.freertos.org/RTOS-task-priority.html
     */
     xTaskCreate(&hid_task, "hid_task", 2048, NULL, 5, NULL);
-    xTaskCreate(&console_task, "console_task", 2048, NULL, 4, NULL);
+    xTaskCreate(&console_task, "console_task", 4096, NULL, 4, NULL);
 }
 
 void hid_task(void *pvParameters)

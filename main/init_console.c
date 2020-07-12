@@ -15,6 +15,7 @@
 
 #include "hid_dev.h"
 #include "ble_kbm_types.h"
+#include "commands.h"
 
 /******************************************************************************
  * File variables
@@ -44,6 +45,7 @@ static struct
 extern QueueHandle_t passkey_queue;
 extern QueueHandle_t keyboard_queue;
 extern QueueHandle_t mouse_queue;
+extern QueueHandle_t commands_queue;
 
 /******************************************************************************
  * External functions
@@ -239,6 +241,22 @@ int send_modifier_keycode(int argc, char **argv)
     return 0;
 }
 
+int delete_bondings(int argc, char **argv)
+{
+    uint8_t command = DELETE_ALL_BONDINGS;
+    if (commands_queue != 0)
+    {
+        if (xQueueSend(commands_queue, (void *)&command, (TickType_t)10) != pdPASS)
+        {
+            ESP_LOGE(TAG, "Failed to send DELETE_BONDING command to queue");
+            return 1;
+        }
+
+        ESP_LOGI(TAG, "DELETE_BONDING command sent to queue");
+    }
+    return 0;
+}
+
 /******************************************************************************
  * Register console commands
  *****************************************************************************/
@@ -275,5 +293,17 @@ void console_register_bluetooth_commands()
     };
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&raw_keycode_cmd));
+
+    /**
+     * Delete all bondings
+     */
+    const esp_console_cmd_t delete_bondings_cmd = {
+        .command = "db",
+        .help = "Delete all bondings",
+        .hint = "db",
+        .func = &delete_bondings,
+    };
+
+    ESP_ERROR_CHECK(esp_console_cmd_register(&delete_bondings_cmd));
 
 }

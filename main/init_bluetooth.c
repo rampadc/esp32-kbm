@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "ble_kbm_types.h"
+#include "commands.h"
 
 /******************************************************************************
  * File variables
@@ -78,6 +79,7 @@ static esp_ble_adv_data_t hidd_adv_data = {
 extern QueueHandle_t passkey_queue;
 extern QueueHandle_t keyboard_queue;
 extern QueueHandle_t mouse_queue;
+extern QueueHandle_t commands_queue;
 
 /******************************************************************************
  * External functions
@@ -241,6 +243,22 @@ void bluetooth_show_bonded_devices(void)
     free(dev_list);
 }
 
+void bluetooth_delete_all_bondings(void)
+{
+    int dev_num = esp_ble_get_bond_device_num();
+    esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
+    esp_ble_get_bond_device_list(&dev_num, dev_list);
+
+    for (int i = 0; i < dev_num; i++)
+    {
+        esp_ble_remove_bond_device(dev_list[i].bd_addr);
+        esp_ble_gap_update_whitelist(false, dev_list[i].bd_addr, BLE_WL_ADDR_TYPE_PUBLIC);
+        esp_ble_gap_update_whitelist(false, dev_list[i].bd_addr, BLE_WL_ADDR_TYPE_RANDOM);
+    }
+
+    free(dev_list);
+}
+
 void initialise_bluetooth()
 {
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
@@ -303,6 +321,8 @@ void initialise_bluetooth()
     and the init key means which key you can distribute to the slave. */
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &init_key, sizeof(uint8_t));
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
+
+    bluetooth_delete_all_bondings();
 }
 
 bool has_ble_secure_connection()
@@ -358,6 +378,22 @@ void handle_bluetooth_task()
                 kbdcmd[0] = 0;
                 esp_hidd_send_keyboard_value(hid_conn_id, modifier, kbdcmd, 1);
                 ESP_LOGI(TAG, "Sent keycode to client");
+            }
+        }
+
+        if (commands_queue != 0)
+        {
+            uint8_t command;
+            if (xQueueReceive(commands_queue, &command, (TickType_t)10))
+            {
+                ESP_LOGI(TAG, "Command received");
+                switch (command)
+                {
+                case DELETE_ALL_BONDINGS:
+                    bluetooth_delete_all_bondings();
+                    ESP_LOGI(TAG, "All bondings deleted");
+                    break;
+                }
             }
         }
     }
