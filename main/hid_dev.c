@@ -37,6 +37,21 @@ static hid_report_map_t *hid_dev_rpt_by_id(uint8_t id, uint8_t type)
     return NULL;
 }
 
+static hid_report_map_t *hid_dev_boot_rpt_by_id(uint8_t id, uint8_t type)
+{
+    hid_report_map_t *rpt = hid_dev_rpt_tbl;
+
+    for (uint8_t i = hid_dev_rpt_tbl_Len; i > 0; i--, rpt++)
+    {
+        if (rpt->id == id && rpt->type == type && rpt->mode == hidBootMode)
+        {
+            return rpt;
+        }
+    }
+
+    return NULL;
+}
+
 void hid_dev_register_reports(uint8_t num_reports, hid_report_map_t *p_report)
 {
     hid_dev_rpt_tbl = p_report;
@@ -66,10 +81,13 @@ uint8_t hid_dev_get_leds()
     uint16_t length = 0;
     const uint8_t *value;
 
-    // get att handle for report
+    esp_err_t ret;
+
+    ESP_LOGD(HID_LE_PRF_TAG, "Checking report using protocol mode");
+    // get att handle for report using protocol mode
     if ((p_rpt = hid_dev_rpt_by_id(HID_RPT_ID_LED_OUT, HID_REPORT_TYPE_OUTPUT)) != NULL)
     {
-        esp_err_t ret = esp_ble_gatts_get_attr_value(p_rpt->handle, &length, &value);
+        ret = esp_ble_gatts_get_attr_value(p_rpt->handle, &length, &value);
 
         if (ret == ESP_FAIL)
         {
@@ -78,6 +96,7 @@ uint8_t hid_dev_get_leds()
         else
         {
             ESP_LOGD(HID_LE_PRF_TAG, "length: %x\n", length);
+            ESP_LOGI(HID_LE_PRF_TAG, "protocol mode: %d", *value);
             if (length > 0)
             {
                 return value[0];

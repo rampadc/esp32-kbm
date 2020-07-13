@@ -215,6 +215,7 @@ hidd_le_env_t hidd_le_env;
 // HID report map length
 uint8_t hidReportMapLen = sizeof(hidReportMap);
 uint8_t hidProtocolMode = HID_PROTOCOL_MODE_REPORT;
+uint8_t hidBootMode = HID_PROTOCOL_MODE_BOOT;
 
 // HID report mapping table
 //static hidRptMap_t  hidRptMap[HID_NUM_REPORTS];

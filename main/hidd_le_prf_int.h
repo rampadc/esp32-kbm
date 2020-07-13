@@ -325,7 +325,7 @@ typedef struct {
 
 extern hidd_le_env_t hidd_le_env;
 extern uint8_t hidProtocolMode;
-
+extern uint8_t hidBootMode;
 
 void hidd_clcb_alloc (uint16_t conn_id, esp_bd_addr_t bda);
 
