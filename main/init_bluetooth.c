@@ -399,6 +399,7 @@ void handle_bluetooth_task()
         if (commands_queue != 0)
         {
             uint8_t command;
+            uint8_t led_value;
             if (xQueueReceive(commands_queue, &command, (TickType_t)10))
             {
                 ESP_LOGI(TAG, "Command received");
@@ -409,6 +410,10 @@ void handle_bluetooth_task()
                     break;
                 case LIST_BONDINGS:
                     bluetooth_show_bonded_devices();
+                    break;
+                case GET_LED:
+                    led_value = esp_hidd_get_led_value();
+                    ESP_LOGI(TAG, "LEDs: %x", led_value);
                     break;
                 }
             }

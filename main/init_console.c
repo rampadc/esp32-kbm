@@ -312,6 +312,22 @@ int list_bondings(int argc, char **argv)
     return 0;
 }
 
+int get_led(int argc, char **argv)
+{
+    uint8_t command = GET_LED;
+    if (commands_queue != 0)
+    {
+        if (xQueueSend(commands_queue, (void *)&command, (TickType_t)10) != pdPASS)
+        {
+            ESP_LOGE(TAG, "Failed to send GET_LED command to queue");
+            return 1;
+        }
+
+        ESP_LOGI(TAG, "GET_LED command sent to queue");
+    }
+    return 0;
+}
+
 /******************************************************************************
  * Register console commands
  *****************************************************************************/
@@ -390,5 +406,18 @@ void console_register_bluetooth_commands()
     };
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&list_bondings_cmd));
+
+
+    /**
+     * Get LED values
+     */
+    const esp_console_cmd_t get_led_cmd = {
+        .command = "led",
+        .help = "Get LED value",
+        .hint = "led",
+        .func = &get_led,
+    };
+
+    ESP_ERROR_CHECK(esp_console_cmd_register(&get_led_cmd));
 
 }
