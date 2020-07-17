@@ -142,8 +142,16 @@ static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *
     }
     case ESP_HIDD_EVENT_BLE_LED_REPORT_WRITE_EVT:
     {
-        ESP_LOGI(TAG, "%s, ESP_HIDD_EVENT_BLE_LED_REPORT_WRITE_EVT", __func__);
-        ESP_LOG_BUFFER_HEX(TAG, param->led_write.data, param->led_write.length);
+        uint8_t value = param->led_write.data;
+        if (value & 1 << 0) {
+            ESP_LOGI(__func__, "Num lock is on");
+        }
+        if (value & 1<< 1) {
+            ESP_LOGI(__func__, "Caps lock is on");
+        }
+        if (value & 1<< 2) {
+            ESP_LOGI(__func__, "Scroll lock is on");
+        }
         break;
     }
     default:
