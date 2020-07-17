@@ -594,6 +594,20 @@ void esp_hidd_prf_cb_hdl(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
         case ESP_GATTS_CLOSE_EVT:
             break;
         case ESP_GATTS_WRITE_EVT: {
+            esp_hidd_cb_param_t cb_param = {0};
+            if (param->write.handle == hidd_le_env.hidd_inst.att_tbl[HIDD_LE_IDX_REPORT_LED_OUT_VAL]) {
+                ESP_LOGI(HID_LE_PRF_TAG, "Write event at LED OUT characteristic");
+                if (hidd_le_env.hidd_cb != NULL) {
+                    ESP_LOGI(HID_LE_PRF_TAG, "Handling write event...");
+                    cb_param.led_write.conn_id = param->write.conn_id;
+                    cb_param.led_write.report_id = HID_RPT_ID_LED_OUT;
+                    cb_param.led_write.length = param->write.len;
+                    cb_param.led_write.data = param->write.value;
+                    (hidd_le_env.hidd_cb)(ESP_HIDD_EVENT_BLE_LED_REPORT_WRITE_EVT, &cb_param);
+                } else {
+                    ESP_LOGI(HID_LE_PRF_TAG, "no callback found for write events");
+                }
+            }
 #if (SUPPORT_REPORT_VENDOR == true)
             esp_hidd_cb_param_t cb_param = {0};
             if (param->write.handle == hidd_le_env.hidd_inst.att_tbl[HIDD_LE_IDX_REPORT_VENDOR_OUT_VAL] &&
@@ -680,7 +694,8 @@ bool hidd_clcb_dealloc (uint16_t conn_id)
     return false;
 }
 
-static struct gatts_profile_inst heart_rate_profile_tab[PROFILE_NUM] = {
+// All Gatt server callback is actually handled in esp_hidd_prf_cb_hdl, not gatts_event_handler
+static struct gatts_profile_inst hid_profile_table[PROFILE_NUM] = {
     [PROFILE_APP_IDX] = {
         .gatts_cb = esp_hidd_prf_cb_hdl,
         .gatts_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
@@ -691,10 +706,11 @@ static struct gatts_profile_inst heart_rate_profile_tab[PROFILE_NUM] = {
 static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
                                 esp_ble_gatts_cb_param_t *param)
 {
+    
     /* If event is register event, store the gatts_if for each profile */
     if (event == ESP_GATTS_REG_EVT) {
         if (param->reg.status == ESP_GATT_OK) {
-            heart_rate_profile_tab[PROFILE_APP_IDX].gatts_if = gatts_if;
+            hid_profile_table[PROFILE_APP_IDX].gatts_if = gatts_if;
         } else {
             ESP_LOGI(HID_LE_PRF_TAG, "Reg app failed, app_id %04x, status %d\n",
                     param->reg.app_id,
@@ -707,9 +723,9 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
         int idx;
         for (idx = 0; idx < PROFILE_NUM; idx++) {
             if (gatts_if == ESP_GATT_IF_NONE || /* ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function */
-                    gatts_if == heart_rate_profile_tab[idx].gatts_if) {
-                if (heart_rate_profile_tab[idx].gatts_cb) {
-                    heart_rate_profile_tab[idx].gatts_cb(event, gatts_if, param);
+                    gatts_if == hid_profile_table[idx].gatts_if) {
+                if (hid_profile_table[idx].gatts_cb) {
+                    hid_profile_table[idx].gatts_cb(event, gatts_if, param);
                 }
             }
         }
