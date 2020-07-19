@@ -255,6 +255,9 @@ void hid_mouse_build_report(uint8_t *buffer, mouse_cmd_t cmd);
 
 uint8_t hid_dev_get_leds();
 
+void enable_led_notifications();
+void disable_led_notifications();
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

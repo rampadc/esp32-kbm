@@ -15,6 +15,8 @@
 #include "ble_kbm_types.h"
 #include "commands.h"
 
+#include "hid_dev.h"
+
 /******************************************************************************
  * File variables
  *****************************************************************************/
@@ -125,6 +127,7 @@ static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *
     {
         ESP_LOGI(TAG, "ESP_HIDD_EVENT_BLE_CONNECT");
         hid_conn_id = param->connect.conn_id;
+
         break;
     }
     case ESP_HIDD_EVENT_BLE_DISCONNECT:
@@ -132,6 +135,8 @@ static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *
         sec_conn = false;
         ESP_LOGI(TAG, "ESP_HIDD_EVENT_BLE_DISCONNECT");
         esp_ble_gap_start_advertising(&hidd_adv_params);
+
+        disable_led_notifications();
         break;
     }
     case ESP_HIDD_EVENT_BLE_VENDOR_REPORT_WRITE_EVT:
@@ -200,6 +205,8 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
             ESP_LOGI(TAG, "auth mode = %s", esp_auth_req_to_str(param->ble_security.auth_cmpl.auth_mode));
         }
         bluetooth_show_bonded_devices();
+
+        enable_led_notifications();
         break;
     }
 }

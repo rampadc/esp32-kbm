@@ -652,7 +652,7 @@ void esp_hidd_prf_cb_hdl(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
             }
 
 #if (SUPPORT_REPORT_VENDOR == true)
-            esp_hidd_cb_param_t cb_param = {0};
+            // cb_param = {0};
             if (param->write.handle == hidd_le_env.hidd_inst.att_tbl[HIDD_LE_IDX_REPORT_VENDOR_OUT_VAL] &&
                 hidd_le_env.hidd_cb != NULL) {
                 cb_param.vendor_write.conn_id = param->write.conn_id;

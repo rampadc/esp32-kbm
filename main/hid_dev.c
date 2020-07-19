@@ -75,6 +75,42 @@ void hid_dev_send_report(esp_gatt_if_t gatts_if, uint16_t conn_id,
     return;
 }
 
+void enable_led_notifications() {
+    hid_report_map_t *p_rpt;
+    uint16_t length = 1;
+
+    uint8_t value = 1;
+    esp_err_t ret;
+    if ((p_rpt = hid_dev_rpt_by_id(HID_RPT_ID_LED_OUT, HID_REPORT_TYPE_OUTPUT)) != NULL) {
+        ret = esp_ble_gatts_set_attr_value(p_rpt->cccdHandle, length, &value);
+        if (ret != ESP_OK) {
+            ESP_LOGE(HID_LE_PRF_TAG, "%s(), Failed to enable notifications", __func__);
+        } else {
+            ESP_LOGI(HID_LE_PRF_TAG, "%s(), Enabled notifications", __func__);
+        }
+    } else {
+        ESP_LOGI(HID_LE_PRF_TAG, "%s(), Report does not exist", __func__);
+    }
+}
+
+void disable_led_notifications() {
+    hid_report_map_t *p_rpt;
+    uint16_t length = 1;
+
+    uint8_t value = 0;
+    esp_err_t ret;
+    if ((p_rpt = hid_dev_rpt_by_id(HID_RPT_ID_LED_OUT, HID_REPORT_TYPE_OUTPUT)) != NULL) {
+        ret = esp_ble_gatts_set_attr_value(p_rpt->cccdHandle, length, &value);
+        if (ret != ESP_OK) {
+            ESP_LOGE(HID_LE_PRF_TAG, "%s(), Failed to enable notifications", __func__);
+        } else {
+            ESP_LOGI(HID_LE_PRF_TAG, "%s(), Enabled notifications", __func__);
+        }
+    } else {
+        ESP_LOGI(HID_LE_PRF_TAG, "%s(), Report does not exist", __func__);
+    }
+}
+
 uint8_t hid_dev_get_leds()
 {
     hid_report_map_t *p_rpt;
